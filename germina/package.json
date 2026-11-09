@@ -1,0 +1,54 @@
+{
+  "name": "germina",
+  "version": "1.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Germina content studio: browse files, edit and preview documents, and plan content with native AI conversations.",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "client-workspace.js",
+    "workspace-state.js",
+    "WELCOME.md",
+    "api.js",
+    "icon.svg",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "vendor/marked.min.js",
+    "vendor/marked.LICENSE.md",
+    "vendor/lucide-icons.json",
+    "vendor/lucide.LICENSE",
+    "vendor/client-ui.js",
+    "vendor/client-ui.css",
+    "vendor/client-ui.LICENSES.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "engines": {
+    "dsh": ">=0.2.0 <0.4.0"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "markdown",
+    "editor"
+  ],
+  "license": "MIT"
+}

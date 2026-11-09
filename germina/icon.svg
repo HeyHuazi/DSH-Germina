@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Original Germina artwork: a document between a file shelf and an assistant. -->
+  <rect x="5" y="8" width="54" height="48" rx="11" fill="#263c47"/>
+  <rect x="10" y="13" width="44" height="38" rx="6" stroke="#dce8e7" stroke-width="2"/>
+  <path d="M10 22h44M22 22v29M43 22v29" stroke="#dce8e7" stroke-width="2"/>
+  <path d="M28 29h9M28 35h9M28 41h6" stroke="#a6d5c7" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="16" cy="17.5" r="1.5" fill="#a6d5c7"/>
+</svg>

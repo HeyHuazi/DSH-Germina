@@ -1,0 +1,32 @@
+{
+  "name": "dsh-germina",
+  "version": "1.3.0",
+  "description": "**Where ideas grow.**   **让想法，自由生长。**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "build:client": "node scripts/build-client.mjs",
+    "verify": "node --check germina/index.js && node --check germina/api.js && node --check germina/client.js && node --check germina/client-workspace.js && node --check germina/workspace-state.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@tailwindcss/cli": "^4.1.11",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "esbuild": "^0.24.0",
+    "lucide-react": "^1.70.0",
+    "postcss": "^8.5.32",
+    "postcss-prefix-selector": "^2.2.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.1.11"
+  }
+}

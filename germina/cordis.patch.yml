@@ -1,0 +1,6 @@
+- insert:
+    - id: germina
+      name: germina
+      config:
+        root: '.'
+        maxFileBytes: 524288
