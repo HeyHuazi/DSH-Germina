@@ -6,4 +6,6 @@
 - DSH-INTEGRATION.md: DSH 0.2.2-rc.1 会话接口、工作区状态、浏览器模块、React 18 JSX/ref 契约与验证边界。
 - PRD.md: 产品规划原文；保留附件字节、V0.1 与 19 章，不代表已实现。
 
+OPTIMIZATION-ROADMAP.md: 优化路线图——三层（工程地基/体验补强/架构决断）+ 四里程碑；Space=目录+germina.space.json 的裁决记录。
+
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

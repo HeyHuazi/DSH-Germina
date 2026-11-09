@@ -1,5 +1,7 @@
 # Germina（发芽）
 
+> 仓库：https://github.com/HeyHuazi/DSH-Germina · MIT License
+
 **Where ideas grow.**  
 **让想法，自由生长。**
 
