@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 语法检查（五文件）
+        run: |
+          node --check germina/index.js
+          node --check germina/api.js
+          node --check germina/client.js
+          node --check germina/client-workspace.js
+          node --check germina/workspace-state.js
+
+      - name: 单元测试
+        run: node --test test/*.test.mjs
+
+      - name: 重编译 vendor 并校验零漂移
+        run: |
+          node scripts/build-client.mjs
+          git diff --exit-code germina/vendor/ || {
+            echo "::error::vendor 产物与 dev-src 源码脱节：请在本地运行 node scripts/build-client.mjs 后提交新产物"
+            exit 1
+          }

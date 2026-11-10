@@ -10,7 +10,8 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "build:client": "node scripts/build-client.mjs",
-    "verify": "node --check germina/index.js && node --check germina/api.js && node --check germina/client.js && node --check germina/client-workspace.js && node --check germina/workspace-state.js"
+    "verify": "node --check germina/index.js && node --check germina/api.js && node --check germina/client.js && node --check germina/client-workspace.js && node --check germina/workspace-state.js",
+    "package": "node scripts/package.mjs"
   },
   "keywords": [],
   "author": "",
