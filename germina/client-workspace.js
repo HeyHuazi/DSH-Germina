@@ -70,6 +70,7 @@ export function createWorkspaceUI(deps) {
         return inFlight.get(root)
       }
     }
+    const inputActionsBridge = { current: null } // ChatPane 注入 → 工具栏研究模板消费
     const ensureFolderSession = createFolderSessions({ sessions, requestApi })
 
     /* ---------- F08 导出：前端组装，不依赖宿主 ---------- */
@@ -189,7 +190,8 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
 
     const DocumentContext = React.createContext(null)
 
-    function ChatPane({ renderFactorySlot, inputActions, t, sessionId, useSession, useConversation, useSessions }) {
+    function ChatPane({ renderFactorySlot, inputActions, t, sessionId, useSession, useConversation, useSessions, inputActionsRef }) {
+      if (inputActionsRef) inputActionsRef.current = inputActions // 桥接：研究模板读取草稿插入能力
       const session = useSession((state) => state)
       const conversation = useConversation((state) => state)
       const summaryBlank = useSessions((state) => state.byId[sessionId]?.blank)
@@ -228,11 +230,14 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
       const [versionList, setVersionList] = useState([])
       const [versionLoading, setVersionLoading] = useState(false)
       const [works, setWorks] = useState([])
+      const [materials, setMaterials] = useState([])
       const [spaceSaving, setSpaceSaving] = useState(false)
       const refreshSpace = useCallback(async () => {
         if (!workspace.root) { setSpace(null); return }
         const r = await requestApi({ op: 'spaceRead', _workspaceRoot: workspace.root })
         if (r.body.ok) { setSpace(r.body.space); setWorks(r.body.space?.works ?? []) }
+        const m = await requestApi({ op: 'materialsRead', _workspaceRoot: workspace.root })
+        if (m.body.ok) setMaterials(m.body.materials)
       }, [workspace.root])
       useEffect(() => { refreshSpace() }, [refreshSpace])
       const statusOf = useCallback((path) => works.find((w) => w.path === path)?.status ?? 'draft', [works])
@@ -298,6 +303,50 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
         else triggerDownload(`${base}.html`, buildExportHtml(active.name, active.content), 'text/html')
         setStatus(`${t('exported')} ${base}.${fmt}`)
       }, [active, t])
+
+      /* F02 素材登记：引用当前打开文件，或登记一个链接/笔记 */
+      const addMaterial = useCallback(async ({ path, title, type, note }) => {
+        const entry = {
+          path: path ?? `notes/${Date.now()}.md`,
+          title: (title || path || note?.slice(0, 30) || '未命名素材').slice(0, 160),
+          type: type ?? (path ? 'file' : 'note'),
+          note: note ?? '',
+          addedAt: new Date().toISOString(),
+        }
+        const list = [...materials.filter((m) => m.path !== entry.path), entry]
+        const r = await requestApi({ op: 'materialsWrite', _workspaceRoot: workspace.root, materials: list })
+        if (r.body.ok) { setMaterials(r.body.materials); setStatus(t('materialAdded')) }
+        else setError(r.body.error ?? `HTTP ${r.status}`)
+      }, [materials, workspace.root, t])
+      const removeMaterial = useCallback(async (path) => {
+        const r = await requestApi({ op: 'materialsWrite', _workspaceRoot: workspace.root, materials: materials.filter((m) => m.path !== path) })
+        if (r.body.ok) setMaterials(r.body.materials)
+        else setError(r.body.error ?? `HTTP ${r.status}`)
+      }, [materials, workspace.root])
+
+      /* F03 研究模板：把 Space 背景 + 引导问题注入聊天草稿（发送仍由用户在会话里确认） */
+      const inputActionsRef = inputActionsBridge
+      const [contextText, setContextText] = useState('')
+      useEffect(() => {
+        if (!workspace.root) { setContextText(''); return }
+        requestApi({ op: 'spaceContext', _workspaceRoot: workspace.root }).then((r) => {
+          if (r.body.ok) setContextText(r.body.contextText ?? '')
+        })
+      }, [workspace.root, space])
+      const researchTemplate = useCallback(async (kind) => {
+        if (!inputActionsRef.current) { setError(t('chatClosedForResearch')); return }
+        const ctx = contextText ? `\n\n[项目背景]\n${contextText}` : ''
+        const mats = materials.length ? `\n[已登记素材]\n${materials.slice(0, 20).map((m) => `- ${m.title}${m.type === 'url' ? ` (${m.path})` : ''}`).join('\n')}` : ''
+        const prompts = {
+          summarize: `请总结当前 Space 已登记素材的要点，按素材逐份输出关键结论。`,
+          compare: `请比较已登记素材中的观点异同：先列共同结论，再列矛盾或分歧，并指出各自的依据。`,
+          outline: `请基于项目背景与已登记素材，为下面的主题生成一份结构化大纲（H2 级章节 + 每章要点列表）：\n主题：`,
+          research: `请围绕以下问题，基于已登记素材作答；若素材不足以支撑结论，请明确说明证据缺口，不要编造来源。\n问题：`,
+        }
+        const text = `${prompts[kind]}${ctx}${mats}`
+        const result = inputActionsRef.current.insertText(text, inputActionsRef.current.captureInsertion())
+        setStatus(result ? t('researchInserted') : t('referenceFailed'))
+      }, [contextText, materials, t])
 
       const saveSpace = useCallback(async (patch) => {
         setSpaceSaving(true)
@@ -616,6 +665,25 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
                 : childrenMap == null ? h('div', { className: 'germina-empty' }, t('loading'))
                   : childrenMap.get('')?.length ? childrenMap.get('').map((node) => h(TreeRow, { key: node.path, node, depth: 0, selectedPath: activePath, onOpenFile: openFile, onDelete: deleteFile, expanded, toggleDir, childrenMap, loadingDirs, t }))
                     : h('div', { className: 'germina-empty' }, t('empty'))),
+            workspace.root ? h('div', { className: 'germina-materials' },
+              h('div', { className: 'germina-field-label', style: { padding: '6px 12px 2px' } }, `${t('materials')} · ${materials.length}`),
+              materials.slice(0, 8).map((m) => h('div', { key: m.path, className: 'germina-material-row', title: m.note || m.path },
+                h(Icon, { name: m.type === 'url' ? 'link' : m.type === 'note' ? 'sticky-note' : fileIcon(m.path), size: 13 }),
+                h('span', { className: 'germina-tree-name' }, m.title),
+                h(IconButton, { icon: 'x', label: `${t('removeMaterial')} ${m.title}`, onClick: () => removeMaterial(m.path) }))),
+              materials.length ? h('div', { className: 'germina-research', role: 'group', 'aria-label': t('research') },
+                h('span', { className: 'germina-field-label', style: { padding: '0 12px' } }, t('research')),
+                [['summarize', 'file-text', t('researchSummarize')], ['compare', 'git-compare', t('researchCompare')], ['outline', 'list-tree', t('researchOutline')], ['research', 'search', t('researchAsk')]].map(([kind, icon, label]) =>
+                  h('button', { key: kind, className: 'germina-btn-ghost', title: label, disabled: !!parsing || !materials.length, onClick: () => researchTemplate(kind) },
+                    h(Icon, { name: icon, size: 12 }), label.slice(0, 6)))) : null,
+              active && !active.readOnly ? h('div', { style: { padding: '2px 12px 6px' } },
+                h('button', { className: 'germina-btn-ghost', onClick: () => addMaterial({ path: active.path, title: active.name, type: 'file' }) },
+                  h(Icon, { name: 'plus', size: 12 }), t('addCurrent'))) : null,
+              h('div', { style: { padding: '0 12px 8px' } },
+                h('button', { className: 'germina-btn-ghost', onClick: () => {
+                  const url = window.prompt(t('addUrlPrompt'))
+                  if (url && url.trim()) addMaterial({ path: url.trim(), title: url.trim(), type: 'url' })
+                } }, h(Icon, { name: 'link', size: 12 }), t('addUrl')))) : null,
             h('div', { className: 'germina-sidebar-foot' }, h('button', { className: 'germina-btn-ghost', onClick: openFolder, disabled: busy }, h(Icon, { name: 'folder-open', size: 15 }), t('openFolder')))) : null,
           h('main', { className: 'germina-main', 'aria-label': t('editor') },
         h('div', { className: 'germina-toolbar' },
@@ -697,7 +765,7 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
               h('span', { title: chatState.reference?.sessionId }, workspace.root ? `${rootName} · ${t('folderSession')}` : t('chooseFolder'))),
             h(DocumentContext.Provider, { value: { active: active?.readOnly ? null : active, selection } },
               chatState.reference && workspace.root && chatVisible
-                ? h(SessionProvider, { session: chatState.reference }, renderSlot('germina.assistant', {}))
+                ? h(SessionProvider, { session: chatState.reference }, renderSlot('germina.assistant', { inputActionsRef: inputActionsBridge }))
                 : h('div', { className: 'germina-empty', role: chatState.error ? 'alert' : 'status' },
                   h('div', { className: 'germina-empty-mark' }, h(Icon, { name: chatState.loading ? 'loader-circle' : 'message-square', size: 24, className: chatState.loading ? 'germina-spin' : '' })),
                   h('div', { className: 'germina-big' }, chatState.loading ? t('loading') : t('chatWelcome')),

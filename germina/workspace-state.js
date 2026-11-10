@@ -108,6 +108,46 @@ export async function createWorkspaceHandler(packageDir, config = {}) {
       } catch { return failure(404, 'version not found') }
     }
     // F01 文档状态 + F06 来源关系：挂在 Space 清单的 works 区，不新增真相源
+    if (body.op === 'materialsWrite') {
+      if (!Array.isArray(body.materials)) return failure(400, 'missing materials array')
+      try {
+        const file = resolve(root, '.germina', 'materials.json')
+        await (await import('node:fs/promises')).mkdir(resolve(root, '.germina'), { recursive: true })
+        const materials = body.materials.slice(0, 2000).map((m) => ({
+          path: String(m?.path ?? '').slice(0, 300),
+          title: String(m?.title ?? '').slice(0, 160),
+          type: ['file', 'url', 'note'].includes(m?.type) ? m.type : 'file',
+          note: String(m?.note ?? '').slice(0, 2000),
+          addedAt: typeof m?.addedAt === 'string' ? m.addedAt : new Date().toISOString(),
+        })).filter((m) => m.path)
+        await writeFile(file, `${JSON.stringify({ version: 1, materials }, null, 2)}\n`, 'utf8')
+        return reply(200, { ok: true, materials })
+      } catch (error) { return failure(500, `Cannot save materials: ${error.message}`) }
+    }
+    if (body.op === 'materialsRead') {
+      try {
+        const raw = await readFile(resolve(root, '.germina', 'materials.json'), 'utf8')
+        const parsed = JSON.parse(raw)
+        return reply(200, { ok: true, materials: Array.isArray(parsed?.materials) ? parsed.materials : [] })
+      } catch (error) {
+        if (error.code === 'ENOENT') return reply(200, { ok: true, materials: [] })
+        return failure(500, `Cannot read materials: ${error.message}`)
+      }
+    }
+    if (body.op === 'spaceContext') {
+      // F03/F04 的上下文编排数据源：返回 Space 背景的可注入文本形式
+      const manifest = await readSpaceManifest(root)
+      if (!manifest) return reply(200, { ok: true, contextText: '' })
+      const c = manifest.context ?? {}
+      const lines = [
+        manifest.goal ? `创作目标：${manifest.goal}` : '',
+        c.audience ? `目标受众：${c.audience}` : '',
+        c.style ? `风格规范：${c.style}` : '',
+        c.terms ? `专业术语：${c.terms}` : '',
+        Array.isArray(c.forbidden) && c.forbidden.length ? `禁止事项：\n- ${c.forbidden.join('\n- ')}` : '',
+      ].filter(Boolean)
+      return reply(200, { ok: true, contextText: lines.join('\n'), name: manifest.name })
+    }
     if (body.op === 'worksWrite') {
       if (!Array.isArray(body.works)) return failure(400, 'missing works array')
       try {
