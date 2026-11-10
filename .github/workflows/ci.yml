@@ -33,7 +33,8 @@ jobs:
       - name: 重编译 vendor 并校验零漂移
         run: |
           node scripts/build-client.mjs
-          git diff --exit-code germina/vendor/ || {
+          # LICENSES.md 按平台条件依赖生成（macOS/Linux 合法差异），不参与漂移检查
+          git diff --exit-code -- ':!germina/vendor/client-ui.LICENSES.md' germina/vendor/ || {
             echo "::error::vendor 产物与 dev-src 源码脱节：请在本地运行 node scripts/build-client.mjs 后提交新产物"
             exit 1
           }
