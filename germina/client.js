@@ -210,6 +210,18 @@ window.__ModuleLoader__.load({
 .germina-status kbd{font:inherit;padding:0 4px;border:1px solid var(--dsw-alias-border-l1);border-radius:3px;background:var(--germina-soft)}
 .germina-status-warn{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:var(--germina-soft);color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;cursor:pointer}
 .germina-status-warn:hover{color:var(--dsw-alias-label-primary,inherit);border-color:var(--dsw-alias-label-secondary)}
+.germina-status-space{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:var(--germina-soft);color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;cursor:pointer}
+.germina-status-space strong{font-weight:600;color:var(--dsw-alias-label-primary,inherit)}
+.germina-status-space:hover{border-color:var(--dsw-alias-label-secondary)}
+.germina-modal-veil{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.35);padding:16px}
+.germina-modal{display:flex;flex-direction:column;gap:12px;width:min(560px,100%);max-height:86vh;overflow:auto;background:var(--dsw-alias-surface-primary,#fff);border:1px solid var(--dsw-alias-border-l1);border-radius:14px;padding:18px 20px;box-shadow:0 18px 50px rgba(15,23,42,.18)}
+.germina-modal-head{display:flex;align-items:center;gap:8px;color:var(--dsw-alias-label-primary,inherit)}
+.germina-field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.germina-field input,.germina-field textarea{font:inherit;font-size:13px;color:var(--dsw-alias-label-primary,inherit);padding:7px 10px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:transparent;resize:vertical}
+.germina-field input:focus,.germina-field textarea:focus{outline:none;border-color:var(--dsw-alias-label-secondary)}
+.germina-field-group{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--dsw-alias-border-l1);padding-top:10px}
+.germina-field-label{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--dsw-alias-label-secondary)}
+.germina-modal-foot{display:flex;align-items:center;gap:8px}
 .germina-chat{width:clamp(330px,33%,520px);min-width:300px;flex:none;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
 .germina-chat>.germina-section-head{border-bottom:1px solid var(--dsw-alias-border-l1);padding:0 16px}
 .germina-chat>.germina-section-head>.germina-icon{color:var(--dsw-alias-brand-primary)}
@@ -481,6 +493,27 @@ window.__ModuleLoader__.load({
             refineStep: '协作打磨',
             characters: '字符',
             unsaved: '未保存修改',
+            spaceTitle: '创作空间',
+            spaceManifestHint: 'germina.space.json · 存在你的项目目录里',
+            spaceUnnamed: '未命名空间 · 点击设置',
+            spaceOpenTitle: '查看与编辑创作空间',
+            spaceName: '名称',
+            spaceNamePh: '例如：研修班 2026',
+            spaceDesc: '简介',
+            spaceDescPh: '一句话说明这个空间是做什么的',
+            spaceGoal: '创作目标',
+            spaceGoalPh: '这个空间要产出什么',
+            spaceContext: '项目背景（AI 会话自动继承）',
+            ctxAudience: '目标受众',
+            ctxAudiencePh: '例如：继续教育学员、行业协会',
+            ctxStyle: '风格规范',
+            ctxStylePh: '例如：正式、克制、不用感叹号',
+            ctxTerms: '专业术语',
+            ctxTermsPh: '例如：学时、公需课、继续教育证书',
+            ctxForbidden: '禁止事项（每行一条）',
+            ctxForbiddenPh: '例如：不得编造学时数据',
+            spaceFileNote: '保存在项目目录的 germina.space.json，可手编可 git',
+            spaceSave: '保存空间',
             autosaving: '已自动保存',
             autosaveFailed: '自动保存失败 · 点击重试',
             autosaveFailedHint: '写入磁盘失败。内容仍在编辑器中，点击重试或按 ⌘S 手动保存。',
@@ -542,6 +575,27 @@ window.__ModuleLoader__.load({
             refineStep: 'Refine',
             characters: 'characters',
             unsaved: 'Unsaved changes',
+            spaceTitle: 'Space',
+            spaceManifestHint: 'germina.space.json · lives in your project folder',
+            spaceUnnamed: 'Unnamed space · click to set up',
+            spaceOpenTitle: 'View and edit this space',
+            spaceName: 'Name',
+            spaceNamePh: 'e.g. Workshop 2026',
+            spaceDesc: 'Description',
+            spaceDescPh: 'What is this space for?',
+            spaceGoal: 'Goal',
+            spaceGoalPh: 'What should this space produce?',
+            spaceContext: 'Project context (inherited by AI chats)',
+            ctxAudience: 'Audience',
+            ctxAudiencePh: 'e.g. continuing-education learners',
+            ctxStyle: 'Style rules',
+            ctxStylePh: 'e.g. formal, restrained, no exclamation marks',
+            ctxTerms: 'Terminology',
+            ctxTermsPh: 'e.g. credit hours, mandatory courses',
+            ctxForbidden: 'Forbidden (one per line)',
+            ctxForbiddenPh: 'e.g. never invent credit-hour numbers',
+            spaceFileNote: 'Saved as germina.space.json in your folder. Hand-editable, git-friendly.',
+            spaceSave: 'Save space',
             autosaving: 'Autosaved',
             autosaveFailed: 'Autosave failed · click to retry',
             autosaveFailedHint: 'Writing to disk failed. Your edits are still in the editor. Click to retry or press ⌘S to save manually.',

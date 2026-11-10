@@ -7,6 +7,7 @@
 import { readFile, writeFile, rename, stat } from 'node:fs/promises'
 import { resolve, basename } from 'node:path'
 import { handleApi } from './api.js'
+import { readSpaceManifest, writeSpaceManifest } from './space.js'
 
 const reply = (status, body) => ({ status, headers: { 'content-type': 'application/json; charset=utf-8' }, body })
 const failure = (status, error) => reply(status, { ok: false, error })
@@ -66,6 +67,16 @@ export async function createWorkspaceHandler(packageDir, config = {}) {
       } catch (error) { return failure(500, `Cannot save folder selection: ${error.message}`) }
     }
     if (!root) return failure(409, 'Choose a folder first')
+    if (body.op === 'spaceRead') {
+      const manifest = await readSpaceManifest(root)
+      return reply(200, { ok: true, space: manifest, path: root, initialized: manifest !== null })
+    }
+    if (body.op === 'spaceWrite') {
+      try {
+        const space = await writeSpaceManifest(root, body.patch ?? {})
+        return reply(200, { ok: true, space })
+      } catch (error) { return failure(400, `Cannot write Space manifest: ${error.message}`) }
+    }
     if (body.op === 'bindSession') {
       if (sessionError) return failure(500, sessionError)
       if (typeof body.sessionId !== 'string' || !body.sessionId.trim() || body._workspaceRoot !== root) return failure(400, 'invalid folder session binding')

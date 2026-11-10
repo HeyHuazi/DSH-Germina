@@ -71,6 +71,66 @@ export function createWorkspaceUI(deps) {
       }
     }
     const ensureFolderSession = createFolderSessions({ sessions, requestApi })
+
+    /* Space 编辑对话框：清单写入用户目录的 germina.space.json */
+    function SpaceDialog({ space, spaceSaving, onClose, onSave, t }) {
+      const [form, setForm] = useState(() => ({
+        name: space?.name || '',
+        description: space?.description || '',
+        goal: space?.goal || '',
+        audience: space?.context?.audience || '',
+        style: space?.context?.style || '',
+        terms: space?.context?.terms || '',
+        forbidden: (space?.context?.forbidden || []).join('\n'),
+      }))
+      const [confirmText, setConfirmText] = useState('')
+      const field = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))
+      const submit = async () => {
+        const ok = await onSave({
+          name: form.name,
+          description: form.description,
+          goal: form.goal,
+          context: {
+            audience: form.audience,
+            style: form.style,
+            terms: form.terms,
+            forbidden: form.forbidden.split('\n').map((x) => x.trim()).filter(Boolean),
+          },
+        })
+        if (ok) onClose()
+      }
+      return h('div', { className: 'germina-modal-veil', onClick: onClose },
+        h('div', { className: 'germina-modal', role: 'dialog', 'aria-label': t('spaceTitle'), onClick: (e) => e.stopPropagation() },
+          h('div', { className: 'germina-modal-head' },
+            h(Icon, { name: 'sprout', size: 16 }),
+            h('strong', null, t('spaceTitle')),
+            h('span', { className: 'germina-subtitle' }, t('spaceManifestHint')),
+            h(IconButton, { icon: 'x', label: t('close'), onClick: onClose })),
+          h('label', { className: 'germina-field' }, h('span', null, t('spaceName')), 
+            h('input', { value: form.name, maxLength: 80, placeholder: t('spaceNamePh'), onChange: field('name') })),
+          h('label', { className: 'germina-field' }, h('span', null, t('spaceDesc')),
+            h('input', { value: form.description, maxLength: 400, placeholder: t('spaceDescPh'), onChange: field('description') })),
+          h('label', { className: 'germina-field' }, h('span', null, t('spaceGoal')),
+            h('input', { value: form.goal, maxLength: 400, placeholder: t('spaceGoalPh'), onChange: field('goal') })),
+          h('div', { className: 'germina-field-group' },
+            h('span', { className: 'germina-field-label' }, t('spaceContext')),
+            h('label', { className: 'germina-field' }, h('span', null, t('ctxAudience')),
+              h('input', { value: form.audience, onChange: field('audience'), placeholder: t('ctxAudiencePh') })),
+            h('label', { className: 'germina-field' }, h('span', null, t('ctxStyle')),
+              h('input', { value: form.style, onChange: field('style'), placeholder: t('ctxStylePh') })),
+            h('label', { className: 'germina-field' }, h('span', null, t('ctxTerms')),
+              h('input', { value: form.terms, onChange: field('terms'), placeholder: t('ctxTermsPh') })),
+            h('label', { className: 'germina-field' }, h('span', null, t('ctxForbidden')),
+              h('textarea', { rows: 3, value: form.forbidden, onChange: field('forbidden'), placeholder: t('ctxForbiddenPh') }))),
+          h('div', { className: 'germina-modal-foot' },
+            h('span', { className: 'germina-subtitle' }, t('spaceFileNote')),
+            h('span', { style: { flex: 1 } }),
+            h(Button, { variant: 'ghost', size: 'sm', onClick: onClose }, t('close')),
+            h(Button, { size: 'sm', onClick: submit, disabled: spaceSaving || !form.name.trim() },
+              h(Icon, { name: spaceSaving ? 'loader-circle' : 'check', size: 14, className: spaceSaving ? 'germina-spin' : '' }),
+              spaceSaving ? t('saving') : t('spaceSave')))))
+    }
+
     function welcomeTab(content, name = '欢迎.md') {
       return { path: 'germina:welcome', name, content, orig: content, kind: 'markdown', readOnly: true }
     }
@@ -127,6 +187,24 @@ export function createWorkspaceUI(deps) {
 
     function MainPanel({ t, pickDirectory, renderSlot, SessionProvider, retainSession, workspace, onWorkspaceChange }) {
       const rootName = workspace.name
+      /* Space 语义：清单在用户目录里（germina.space.json），文件系统即真相 */
+      const [space, setSpace] = useState(null)
+      const [spaceOpen, setSpaceOpen] = useState(false)
+      const [spaceSaving, setSpaceSaving] = useState(false)
+      const refreshSpace = useCallback(async () => {
+        if (!workspace.root) { setSpace(null); return }
+        const r = await requestApi({ op: 'spaceRead', _workspaceRoot: workspace.root })
+        if (r.body.ok) setSpace(r.body.space)
+      }, [workspace.root])
+      useEffect(() => { refreshSpace() }, [refreshSpace])
+      const saveSpace = useCallback(async (patch) => {
+        setSpaceSaving(true)
+        const r = await requestApi({ op: 'spaceWrite', _workspaceRoot: workspace.root, patch })
+        setSpaceSaving(false)
+        if (r.body.ok) { setSpace(r.body.space); return true }
+        setError(r.body.error ?? `HTTP ${r.status}`)
+        return false
+      }, [workspace.root])
       const api = useCallback((payload) => requestApi({ ...payload, _workspaceRoot: workspace.root }), [workspace.root])
       /* 懒加载树模型：childrenMap path→entries[]（null=未加载，[]=空）；
          搜索时整体替换为 server-side tree 结果 */
@@ -515,6 +593,9 @@ export function createWorkspaceUI(deps) {
                   h('p', null, chatState.error || (workspace.root ? t('folderSessionHint') : t('chooseFolder'))),
                   chatState.error ? h('button', { className: 'germina-btn', onClick: () => setChatRetry((value) => value + 1) }, t('retry')) : null))) : null,
         ),
+        spaceOpen ? h(SpaceDialog, {
+          space, spaceSaving, onClose: () => setSpaceOpen(false), onSave: saveSpace, t,
+        }) : null,
         /* 状态栏 */
         h('div', { className: 'germina-status' },
           autosaveError ? h('button', { className: 'germina-status-warn', role: 'alert', title: t('autosaveFailedHint'), onClick: save },
@@ -522,6 +603,8 @@ export function createWorkspaceUI(deps) {
           h('span', { title: status }, h(Icon, { name: busy ? 'loader-circle' : dirty ? 'pencil-line' : 'check', size: 11, className: busy ? 'germina-spin' : '' }), status || (autosaveError ? '' : dirty ? t('autosaving') : t('ready'))),
           active ? h('span', null, (extOf(active.name) || 'text').toUpperCase()) : null,
           active ? h('span', null, `${active.content.length.toLocaleString()} ${t('characters')}`) : null,
+          workspace.root ? h('button', { className: 'germina-status-space', title: t('spaceOpenTitle'), onClick: () => setSpaceOpen(true) },
+            h(Icon, { name: 'sprout', size: 12 }), space?.name ? h('strong', null, space.name) : t('spaceUnnamed')) : null,
           h('span', { style: { marginLeft: 'auto' } }, h(Icon, { name: 'keyboard', size: 12 }), h('kbd', null, /Mac/.test(navigator.platform) ? '⌘ S' : 'Ctrl S'))),
       )
     }

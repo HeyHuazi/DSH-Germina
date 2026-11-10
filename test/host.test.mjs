@@ -21,7 +21,7 @@ async function fixture(t, states = {}, route, configuredRoot) {
   await mkdir(saved)
   await writeFile(join(initial, 'probe.txt'), initial)
   await writeFile(join(saved, 'probe.txt'), saved)
-  for (const file of ['index.js', 'api.js', 'workspace-state.js', 'client-workspace.js', 'WELCOME.md', 'package.json']) {
+  for (const file of ['index.js', 'api.js', 'workspace-state.js', 'space.js', 'client-workspace.js', 'WELCOME.md', 'package.json']) {
     await copyFile(new URL(`../germina/${file}`, import.meta.url), join(base, file))
   }
   await mkdir(join(base, 'vendor'))
