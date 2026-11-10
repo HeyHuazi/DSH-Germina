@@ -72,6 +72,40 @@ export function createWorkspaceUI(deps) {
     }
     const ensureFolderSession = createFolderSessions({ sessions, requestApi })
 
+    /* ---------- F08 导出：前端组装，不依赖宿主 ---------- */
+    function mdToHtml(md) {
+      const esc = (x) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      return esc(md)
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/^---$/gm, '<hr/>')
+        .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    }
+    function buildExportHtml(name, content) {
+      return `<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<title>${name.replace(/\.\w+$/, '')}</title>
+<style>body{max-width:760px;margin:40px auto;padding:0 20px;font:15px/1.8 -apple-system,"PingFang SC",sans-serif;color:#1e293b}
+h1,h2,h3{line-height:1.4;margin:1.6em 0 .6em}blockquote{border-left:3px solid #cbd5e1;margin:0;padding:2px 16px;color:#475569}
+code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</style></head>
+<body>${mdToHtml(content)}</body></html>`
+    }
+    function triggerDownload(name, content, mime) {
+      const url = URL.createObjectURL(new Blob([content], { type: mime }))
+      const a = h('a', { href: url, download: name })
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 4000)
+    }
+
+
     /* Space 编辑对话框：清单写入用户目录的 germina.space.json */
     function SpaceDialog({ space, spaceSaving, onClose, onSave, t }) {
       const [form, setForm] = useState(() => ({
@@ -190,13 +224,81 @@ export function createWorkspaceUI(deps) {
       /* Space 语义：清单在用户目录里（germina.space.json），文件系统即真相 */
       const [space, setSpace] = useState(null)
       const [spaceOpen, setSpaceOpen] = useState(false)
+      const [versionsOpen, setVersionsOpen] = useState(false)
+      const [versionList, setVersionList] = useState([])
+      const [versionLoading, setVersionLoading] = useState(false)
+      const [works, setWorks] = useState([])
       const [spaceSaving, setSpaceSaving] = useState(false)
       const refreshSpace = useCallback(async () => {
         if (!workspace.root) { setSpace(null); return }
         const r = await requestApi({ op: 'spaceRead', _workspaceRoot: workspace.root })
-        if (r.body.ok) setSpace(r.body.space)
+        if (r.body.ok) { setSpace(r.body.space); setWorks(r.body.space?.works ?? []) }
       }, [workspace.root])
       useEffect(() => { refreshSpace() }, [refreshSpace])
+      const statusOf = useCallback((path) => works.find((w) => w.path === path)?.status ?? 'draft', [works])
+      const derivedFromOf = useCallback((path) => works.find((w) => w.path === path)?.derivedFrom ?? [], [works])
+      const setStatusFor = useCallback(async (path, next) => {
+        const list = [...works.filter((w) => w.path !== path), { path, status: next, derivedFrom: derivedFromOf(path) }]
+        const r = await requestApi({ op: 'worksWrite', _workspaceRoot: workspace.root, works: list })
+        if (r.body.ok) setWorks(r.body.works)
+        else setError(r.body.error ?? `HTTP ${r.status}`)
+      }, [works, workspace.root, derivedFromOf])
+
+      const openVersions = useCallback(async () => {
+        if (!active) return
+        setVersionsOpen(true)
+        setVersionLoading(true)
+        const r = await requestApi({ op: 'versionList', _workspaceRoot: workspace.root, path: active.path })
+        setVersionLoading(false)
+        if (r.body.ok) setVersionList(r.body.versions)
+        else setError(r.body.error ?? `HTTP ${r.status}`)
+      }, [active, workspace.root])
+      const makeSnapshot = useCallback(async (label) => {
+        if (!active) return
+        const r = await requestApi({ op: 'versionSave', _workspaceRoot: workspace.root, path: active.path, content: active.content, label })
+        if (r.body.ok) { openVersions(); setStatus(`${t('snapSaved')} ${r.body.ts ?? ''}`) }
+        else setError(r.body.error ?? `HTTP ${r.status}`)
+      }, [active, workspace.root, openVersions, t])
+      const restoreSnapshot = useCallback(async (ts) => {
+        if (!active) return
+        if (!window.confirm(t('restoreConfirm').replace('{0}', ts))) return
+        const r = await requestApi({ op: 'versionRestore', _workspaceRoot: workspace.root, path: active.path, ts, content: active.content })
+        if (!r.body.ok) { setError(r.body.error ?? `HTTP ${r.status}`); return }
+        setTabs((prev) => prev.map((x) => (x.path === active.path ? { ...x, content: r.body.content } : x)))
+        setVersionsOpen(false)
+        setStatus(t('restored'))
+      }, [active, workspace.root, t])
+      const previewSnapshot = useCallback(async (ts) => {
+        const r = await requestApi({ op: 'versionRead', _workspaceRoot: workspace.root, path: active?.path, ts })
+        if (r.body.ok) setStatus(`${ts}: ${r.body.content.length} ${t('characters')}`)
+        else setError(r.body.error ?? `HTTP ${r.status}`)
+      }, [active, t])
+      const deriveFrom = useCallback(async (sourceTab) => {
+        if (!sourceTab) return
+        const kind = window.prompt(t('derivePrompt'), t('deriveDefault'))
+        if (kind === null) return
+        const base = sourceTab.name.replace(/\.\w+$/, '')
+        const name = `${base} · ${kind || t('deriveDefault')}.md`
+        const header = `# ${base} · ${kind || t('deriveDefault')}\n\n> ${t('derivedFrom').replace('{0}', sourceTab.name)}\n\n---\n\n`
+        const r = await api({ op: 'write', path: name, content: header })
+        if (r.body.ok) {
+          await requestApi({ op: 'worksWrite', _workspaceRoot: workspace.root, works: [
+            ...works.filter((w) => w.path !== name),
+            { path: name, status: 'draft', derivedFrom: [sourceTab.path] },
+          ] })
+          refreshSpace()
+          await openFile(name)
+          fetchChildren('')
+        } else setError(`${name}: ${r.body.error ?? `HTTP ${r.status}`}`)
+      }, [works, workspace.root, api, openFile, fetchChildren, refreshSpace])
+      const exportAs = useCallback((fmt) => {
+        if (!active) return
+        const base = active.name.replace(/\.\w+$/, '')
+        if (fmt === 'md') triggerDownload(`${base}.md`, active.content, 'text/markdown')
+        else triggerDownload(`${base}.html`, buildExportHtml(active.name, active.content), 'text/html')
+        setStatus(`${t('exported')} ${base}.${fmt}`)
+      }, [active, t])
+
       const saveSpace = useCallback(async (patch) => {
         setSpaceSaving(true)
         const r = await requestApi({ op: 'spaceWrite', _workspaceRoot: workspace.root, patch })
@@ -528,6 +630,15 @@ export function createWorkspaceUI(deps) {
             }, h(Icon, { name: { edit: 'pencil-line', split: 'columns-2', preview: 'eye' }[mode], size: 14 }), h('span', { className: 'germina-control-label' }, t({ edit: 'viewEdit', split: 'viewSplit', preview: 'viewPreview' }[mode]))))) : null,
           active && !active.readOnly ? h(IconButton, { icon: 'trash-2', label: t('deleteFile'), className: 'germina-danger', onClick: () => deleteFile(active.path) }) : null,
           h('span', { className: 'germina-toolbar-divider', 'aria-hidden': true }),
+          active && !active.readOnly ? h(IconButton, { icon: 'history', label: t('versions'), title: t('versions'), onClick: openVersions }) : null,
+          active && !active.readOnly ? h('select', { className: 'germina-status-select', 'aria-label': t('docStatus'), value: statusOf(active.path), onChange: (e) => setStatusFor(active.path, e.target.value) },
+            [['draft', t('statusDraft')], ['in-progress', t('statusInProgress')], ['done', t('statusDone')]].map(([v, label]) => h('option', { key: v, value: v }, label))) : null,
+          active && !active.readOnly ? h(IconButton, { icon: 'git-fork', label: t('deriveFrom'), title: t('deriveFrom'), onClick: () => deriveFrom(active) }) : null,
+          active ? h(IconButton, { icon: 'download', label: t('exportMd'), title: t('exportMd'), onClick: () => exportAs('md') }) : null,
+          active?.kind === 'markdown' ? h(IconButton, { icon: 'file-code-2', label: t('exportHtml'), title: t('exportHtml'), onClick: () => exportAs('html') }) : null,
+          active && derivedFromOf(active.path).length ? h('span', { className: 'germina-derived', title: t('derivedFrom').replace('{0}', derivedFromOf(active.path).join(', ')) },
+            h(Icon, { name: 'git-fork', size: 11 }), t('derivedBadge')) : null,
+          h('span', { className: 'germina-toolbar-divider', 'aria-hidden': true }),
           h(Button, { 'data-dirty': dirty, onClick: save, disabled: busy || !dirty, size: 'sm' },
             h(Icon, { name: busy ? 'loader-circle' : dirty ? 'save' : 'check', size: 14, className: busy ? 'germina-spin' : '' }),
             busy ? t('saving') : dirty ? t('save') : t('saved')), 
@@ -596,6 +707,24 @@ export function createWorkspaceUI(deps) {
         spaceOpen ? h(SpaceDialog, {
           space, spaceSaving, onClose: () => setSpaceOpen(false), onSave: saveSpace, t,
         }) : null,
+        versionsOpen ? h('div', { className: 'germina-modal-veil', onClick: () => setVersionsOpen(false) },
+          h('div', { className: 'germina-modal', role: 'dialog', 'aria-label': t('versions'), onClick: (e) => e.stopPropagation() },
+            h('div', { className: 'germina-modal-head' },
+              h(Icon, { name: 'history', size: 16 }), h('strong', null, t('versions')),
+              h('span', { className: 'germina-subtitle' }, active?.name || ''),
+              h('span', { style: { flex: 1 } }),
+              h(Button, { size: 'sm', variant: 'ghost', onClick: () => makeSnapshot(t('manualSnap')) }, h(Icon, { name: 'camera', size: 14 }), t('snapNow')),
+              h(IconButton, { icon: 'x', label: t('close'), onClick: () => setVersionsOpen(false) })),
+            versionLoading ? h('div', { className: 'germina-empty' }, t('loading')) :
+              versionList.length ? h('div', { className: 'germina-version-list' },
+                versionList.map((v) => h('div', { key: v.ts, className: 'germina-version-row' },
+                  h('div', { className: 'germina-version-meta' },
+                    h('strong', null, v.ts.replaceAll('T', ' ').replaceAll('-', '/').slice(0, 19)),
+                    v.label ? h('span', { className: 'germina-version-label' }, v.label) : null,
+                    h('span', { className: 'germina-subtitle' }, `${v.bytes} B`)),
+                  h('div', { className: 'germina-version-actions' },
+                    h(Button, { size: 'sm', variant: 'ghost', onClick: () => previewSnapshot(v.ts) }, t('snapPreview')),
+                    h(Button, { size: 'sm', onClick: () => restoreSnapshot(v.ts) }, t('snapRestore')))))) : h('div', { className: 'germina-empty' }, t('noVersions')))) : null,
         /* 状态栏 */
         h('div', { className: 'germina-status' },
           autosaveError ? h('button', { className: 'germina-status-warn', role: 'alert', title: t('autosaveFailedHint'), onClick: save },

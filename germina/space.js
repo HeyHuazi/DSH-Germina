@@ -14,6 +14,7 @@ export const SPACE_TEMPLATE = {
   description: '',
   goal: '',
   context: { audience: '', style: '', terms: '', decisions: [], forbidden: [] },
+  works: [],
   createdAt: '',
 }
 const LIMITS = { name: 80, description: 400, goal: 400 }
@@ -27,6 +28,7 @@ export async function readSpaceManifest(dirAbs) {
       ...SPACE_TEMPLATE,
       ...parsed,
       context: { ...SPACE_TEMPLATE.context, ...(parsed.context ?? {}) },
+      works: Array.isArray(parsed.works) ? parsed.works : [],
       version: 1,
     }
   } catch {
@@ -43,6 +45,12 @@ export async function writeSpaceManifest(dirAbs, patch = {}) {
     ...(typeof patch.goal === 'string' ? { goal: patch.goal.slice(0, LIMITS.goal) } : {}),
     ...(patch.context && typeof patch.context === 'object' && !Array.isArray(patch.context)
       ? { context: { ...current.context, ...patch.context } } : {}),
+    ...(Array.isArray(patch.works)
+      ? { works: patch.works.slice(0, 500).map((w) => ({
+          path: String(w?.path ?? '').slice(0, 300),
+          status: ['draft', 'in-progress', 'done'].includes(w?.status) ? w.status : 'draft',
+          derivedFrom: Array.isArray(w?.derivedFrom) ? w.derivedFrom.slice(0, 20).map((x) => String(x).slice(0, 300)) : [],
+        })).filter((w) => w.path) } : {}),
     version: 1,
   }
   if (!next.name.trim()) throw new Error('Space name is required')

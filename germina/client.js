@@ -222,6 +222,14 @@ window.__ModuleLoader__.load({
 .germina-field-group{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--dsw-alias-border-l1);padding-top:10px}
 .germina-field-label{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--dsw-alias-label-secondary)}
 .germina-modal-foot{display:flex;align-items:center;gap:8px}
+.germina-status-select{font:inherit;font-size:11px;color:var(--dsw-alias-label-secondary);background:var(--germina-soft);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:2px 6px}
+.germina-derived{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--dsw-alias-label-secondary);border:1px dashed var(--dsw-alias-border-l1);border-radius:999px;padding:1px 8px}
+.germina-version-list{display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:120px;max-height:56vh}
+.germina-version-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;padding:8px 12px}
+.germina-version-meta{display:flex;flex-direction:column;gap:2px;font-size:12px}
+.germina-version-meta strong{font-weight:600;font-variant-numeric:tabular-nums}
+.germina-version-label{font-size:11px;color:var(--dsw-alias-label-secondary)}
+.germina-version-actions{display:flex;gap:6px}
 .germina-chat{width:clamp(330px,33%,520px);min-width:300px;flex:none;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
 .germina-chat>.germina-section-head{border-bottom:1px solid var(--dsw-alias-border-l1);padding:0 16px}
 .germina-chat>.germina-section-head>.germina-icon{color:var(--dsw-alias-brand-primary)}
@@ -514,6 +522,27 @@ window.__ModuleLoader__.load({
             ctxForbiddenPh: '例如：不得编造学时数据',
             spaceFileNote: '保存在项目目录的 germina.space.json，可手编可 git',
             spaceSave: '保存空间',
+            versions: '版本历史',
+            snapNow: '拍快照',
+            manualSnap: '手动快照',
+            snapPreview: '预览',
+            snapRestore: '恢复到此',
+            snapSaved: '快照已保存',
+            restored: '已恢复历史版本（当前内容已自动备份）',
+            restoreConfirm: '恢复到 {0} ？当前内容会先自动备份。',
+            noVersions: '还没有快照。编辑后会自动积累，也可以手动拍快照。',
+            docStatus: '文档状态',
+            statusDraft: '草稿',
+            statusInProgress: '进行中',
+            statusDone: '已完成',
+            deriveFrom: '基于此内容创作',
+            derivePrompt: '衍生目标（例如：公众号文章 / 执行清单 / 总结报告）',
+            deriveDefault: '衍生稿',
+            derivedFrom: '基于 {0} 创建',
+            derivedBadge: '衍生',
+            exported: '已导出',
+            exportMd: '导出 Markdown',
+            exportHtml: '导出 HTML',
             autosaving: '已自动保存',
             autosaveFailed: '自动保存失败 · 点击重试',
             autosaveFailedHint: '写入磁盘失败。内容仍在编辑器中，点击重试或按 ⌘S 手动保存。',
@@ -575,6 +604,27 @@ window.__ModuleLoader__.load({
             refineStep: 'Refine',
             characters: 'characters',
             unsaved: 'Unsaved changes',
+            versions: 'Versions',
+            snapNow: 'Snapshot',
+            manualSnap: 'manual snapshot',
+            snapPreview: 'Preview',
+            snapRestore: 'Restore',
+            snapSaved: 'Snapshot saved',
+            restored: 'Restored (current content was auto-backed-up first)',
+            restoreConfirm: 'Restore to {0} ? Current content will be auto-backed-up first.',
+            noVersions: 'No snapshots yet. They accumulate as you edit, or take one manually.',
+            docStatus: 'Document status',
+            statusDraft: 'Draft',
+            statusInProgress: 'In progress',
+            statusDone: 'Done',
+            deriveFrom: 'Create from this',
+            derivePrompt: 'Derivation goal (e.g. article / checklist / summary report)',
+            deriveDefault: 'Derived draft',
+            derivedFrom: 'Created from {0}',
+            derivedBadge: 'derived',
+            exported: 'Exported',
+            exportMd: 'Export Markdown',
+            exportHtml: 'Export HTML',
             spaceTitle: 'Space',
             spaceManifestHint: 'germina.space.json · lives in your project folder',
             spaceUnnamed: 'Unnamed space · click to set up',
