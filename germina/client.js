@@ -208,6 +208,8 @@ window.__ModuleLoader__.load({
 .germina-status{flex:none;display:flex;align-items:center;gap:12px;min-height:28px;padding:5px 14px;border-top:1px solid var(--dsw-alias-border-l1);font-size:10px;color:var(--dsw-alias-label-secondary)}
 .germina-status span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .germina-status kbd{font:inherit;padding:0 4px;border:1px solid var(--dsw-alias-border-l1);border-radius:3px;background:var(--germina-soft)}
+.germina-status-warn{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:var(--germina-soft);color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;cursor:pointer}
+.germina-status-warn:hover{color:var(--dsw-alias-label-primary,inherit);border-color:var(--dsw-alias-label-secondary)}
 .germina-chat{width:clamp(330px,33%,520px);min-width:300px;flex:none;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
 .germina-chat>.germina-section-head{border-bottom:1px solid var(--dsw-alias-border-l1);padding:0 16px}
 .germina-chat>.germina-section-head>.germina-icon{color:var(--dsw-alias-brand-primary)}
@@ -479,6 +481,9 @@ window.__ModuleLoader__.load({
             refineStep: '协作打磨',
             characters: '字符',
             unsaved: '未保存修改',
+            autosaving: '已自动保存',
+            autosaveFailed: '自动保存失败 · 点击重试',
+            autosaveFailedHint: '写入磁盘失败。内容仍在编辑器中，点击重试或按 ⌘S 手动保存。',
             ready: '就绪',
             files: '文件',
             assistant: 'AI 策划助手',
@@ -537,6 +542,9 @@ window.__ModuleLoader__.load({
             refineStep: 'Refine',
             characters: 'characters',
             unsaved: 'Unsaved changes',
+            autosaving: 'Autosaved',
+            autosaveFailed: 'Autosave failed · click to retry',
+            autosaveFailedHint: 'Writing to disk failed. Your edits are still in the editor. Click to retry or press ⌘S to save manually.',
             ready: 'Ready',
             files: 'Files',
             assistant: 'AI planning assistant',

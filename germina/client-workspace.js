@@ -8,7 +8,7 @@ export function createWorkspaceUI(deps) {
     const { React, uiKit: { Button, SegmentedControl, SegmentedControlItem, Alert, AlertTitle, AlertDescription, AlertAction }, requestApi, sessions, Icon, IconButton, PanelIcon, Styles, MdPreview, JsonPreview, HtmlPreview,
       TreeRow, useSplit, kindFor, fileIcon, parentOf, extOf, isSvgExt } = deps
     const h = React.createElement
-    const { useState, useEffect, useCallback } = React
+    const { useState, useEffect, useCallback, useRef } = React
     function documentContext(active, selection) {
       if (!active) return ''
       const content = selection || active.content
@@ -255,6 +255,32 @@ export function createWorkspaceUI(deps) {
         setTabs((prev) => prev.map((x) => (x.path === activePath && !x.readOnly ? { ...x, content: value } : x)))
       }, [activePath])
 
+      /* 自动保存：停笔 800ms 后写盘；失败不清草稿，仅状态栏提示；保存期间继续编辑则以最新内容重拍定时器 */
+      const [autosaveError, setAutosaveError] = useState(false)
+      const autosaveTimer = useRef(null)
+      const autosaveInFlight = useRef(false)
+      const saveRef = useRef(null)
+      useEffect(() => { saveRef.current = save }, [save])
+      useEffect(() => {
+        if (!active || active.readOnly || !workspace.root) return undefined
+        if (active.content === active.orig) return undefined
+        if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+        autosaveTimer.current = setTimeout(async () => {
+          if (autosaveInFlight.current) { saveRef.current?.(); return }
+          autosaveInFlight.current = true
+          const r = await api({ op: 'write', path: active.path, content: active.content })
+          autosaveInFlight.current = false
+          if (r.body.ok) {
+            /* 仅当草稿未被继续编辑时才清脏标记；否则留给下一轮自动保存 */
+            setTabs((prev) => prev.map((x) => (x.path === active.path && x.content === active.content ? { ...x, orig: active.content } : x)))
+            setAutosaveError(false)
+          } else {
+            setAutosaveError(true)
+          }
+        }, 800)
+        return () => clearTimeout(autosaveTimer.current)
+      }, [active?.path, active?.content, active?.orig, active?.readOnly, workspace.root, api])
+
       const save = useCallback(async () => {
         if (!active || active.readOnly || !workspace.root) return
         setBusy(true)
@@ -263,6 +289,7 @@ export function createWorkspaceUI(deps) {
         setBusy(false)
         if (r.body.ok) {
           setTabs((prev) => prev.map((x) => (x.path === active.path ? { ...x, orig: active.content } : x)))
+          setAutosaveError(false)
           setStatus(`${t('saved')} ${new Date().toLocaleTimeString()}`)
           refreshDir(parentOf(active.path))
         } else {
@@ -490,7 +517,9 @@ export function createWorkspaceUI(deps) {
         ),
         /* 状态栏 */
         h('div', { className: 'germina-status' },
-          h('span', { title: status }, h(Icon, { name: busy ? 'loader-circle' : dirty ? 'pencil-line' : 'check', size: 11, className: busy ? 'germina-spin' : '' }), status || (dirty ? t('unsaved') : t('ready'))),
+          autosaveError ? h('button', { className: 'germina-status-warn', role: 'alert', title: t('autosaveFailedHint'), onClick: save },
+            h(Icon, { name: 'triangle-alert', size: 11 }), t('autosaveFailed')) : null,
+          h('span', { title: status }, h(Icon, { name: busy ? 'loader-circle' : dirty ? 'pencil-line' : 'check', size: 11, className: busy ? 'germina-spin' : '' }), status || (autosaveError ? '' : dirty ? t('autosaving') : t('ready'))),
           active ? h('span', null, (extOf(active.name) || 'text').toUpperCase()) : null,
           active ? h('span', null, `${active.content.length.toLocaleString()} ${t('characters')}`) : null,
           h('span', { style: { marginLeft: 'auto' } }, h(Icon, { name: 'keyboard', size: 12 }), h('kbd', null, /Mac/.test(navigator.platform) ? '⌘ S' : 'Ctrl S'))),
