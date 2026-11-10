@@ -223,6 +223,14 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
 
     function MainPanel({ t, pickDirectory, renderSlot, SessionProvider, retainSession, workspace, onWorkspaceChange }) {
       const rootName = workspace.name
+
+      const [tabs, setTabs] = useState(() => [welcomeTab(workspace.welcome, t('welcomeFile'))])               // [{path, name, content, orig, kind}]
+      const [activePath, setActivePath] = useState('germina:welcome')
+      const active = tabs.find((x) => x.path === activePath) ?? null
+
+
+
+
       /* Space 语义：清单在用户目录里（germina.space.json），文件系统即真相 */
       const [space, setSpace] = useState(null)
       const [spaceOpen, setSpaceOpen] = useState(false)
@@ -364,8 +372,6 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
       const [filter, setFilter] = useState('')
       const [searchResult, setSearchResult] = useState(null) // 搜索时的扁平 entries | null
       const [searching, setSearching] = useState(false)
-      const [tabs, setTabs] = useState(() => [welcomeTab(workspace.welcome, t('welcomeFile'))])               // [{path, name, content, orig, kind}]
-      const [activePath, setActivePath] = useState('germina:welcome')
       const [error, setError] = useState('')
       const [status, setStatus] = useState('')
       const [busy, setBusy] = useState(false)
@@ -399,8 +405,6 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
       useEffect(() => { setSelection('') }, [activePath])
       const [expanded, setExpanded] = useState(() => new Set())  // 已展开目录 path 集合
       const { ratio, containerRef, splitter } = useSplit(0.5)
-
-      const active = tabs.find((x) => x.path === activePath) ?? null
 
       /* 拉取一个目录的直接子级（懒加载单元） */
       const fetchChildren = useCallback(async (dirPath) => {
@@ -484,6 +488,23 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
         setTabs((prev) => prev.map((x) => (x.path === activePath && !x.readOnly ? { ...x, content: value } : x)))
       }, [activePath])
 
+      const save = useCallback(async () => {
+        if (!active || active.readOnly || !workspace.root) return
+        setBusy(true)
+        setStatus(t('saving'))
+        const r = await api({ op: 'write', path: active.path, content: active.content })
+        setBusy(false)
+        if (r.body.ok) {
+          setTabs((prev) => prev.map((x) => (x.path === active.path ? { ...x, orig: active.content } : x)))
+          setAutosaveError(false)
+          setStatus(`${t('saved')} ${new Date().toLocaleTimeString()}`)
+          refreshDir(parentOf(active.path))
+        } else {
+          setStatus('')
+          setError(`${active.path}: ${r.body.error ?? `HTTP ${r.status}`}`)
+        }
+      }, [active, t, refreshDir])
+
       /* 自动保存：停笔 800ms 后写盘；失败不清草稿，仅状态栏提示；保存期间继续编辑则以最新内容重拍定时器 */
       const [autosaveError, setAutosaveError] = useState(false)
       const autosaveTimer = useRef(null)
@@ -510,22 +531,6 @@ code{background:#f1f5f9;padding:1px 5px;border-radius:4px}a{color:#2563eb}</styl
         return () => clearTimeout(autosaveTimer.current)
       }, [active?.path, active?.content, active?.orig, active?.readOnly, workspace.root, api])
 
-      const save = useCallback(async () => {
-        if (!active || active.readOnly || !workspace.root) return
-        setBusy(true)
-        setStatus(t('saving'))
-        const r = await api({ op: 'write', path: active.path, content: active.content })
-        setBusy(false)
-        if (r.body.ok) {
-          setTabs((prev) => prev.map((x) => (x.path === active.path ? { ...x, orig: active.content } : x)))
-          setAutosaveError(false)
-          setStatus(`${t('saved')} ${new Date().toLocaleTimeString()}`)
-          refreshDir(parentOf(active.path))
-        } else {
-          setStatus('')
-          setError(`${active.path}: ${r.body.error ?? `HTTP ${r.status}`}`)
-        }
-      }, [active, t, refreshDir])
 
       const closeTab = useCallback((path) => {
         const tab = tabs.find((x) => x.path === path)
